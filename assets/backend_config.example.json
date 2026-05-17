@@ -1,0 +1,4 @@
+{
+  "_comment": "Copy to backend_config.json (or edit backend_config.json) and set YOUR computer LAN IP.",
+  "apiOrigin": "http://192.168.1.10:5001"
+}
