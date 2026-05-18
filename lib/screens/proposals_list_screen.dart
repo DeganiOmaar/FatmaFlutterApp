@@ -377,13 +377,16 @@ class _ProposalsListScreenState extends State<ProposalsListScreen> {
             ...fileList.map((f) {
               final fn = f['filename']?.toString() ?? '';
               final on = f['originalName']?.toString() ?? fn;
-              if (fn.isEmpty) return const SizedBox.shrink();
+              // Use Cloudinary URL if available, fall back to legacy local path
+              final rawUrl = f['url']?.toString().trim() ?? '';
+              final fileUrl = rawUrl.isNotEmpty ? rawUrl : _uploadUrl(fn);
+              if (fn.isEmpty && rawUrl.isEmpty) return const SizedBox.shrink();
               return ListTile(
                 contentPadding: EdgeInsets.zero,
                 dense: true,
                 leading: const Icon(Icons.attach_file_rounded, size: 20),
                 title: Text(
-                  on,
+                  on.isNotEmpty ? on : fn,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.inter(fontSize: 13),
@@ -391,9 +394,9 @@ class _ProposalsListScreenState extends State<ProposalsListScreen> {
                 trailing: IconButton(
                   icon: Icon(Icons.open_in_new_rounded,
                       color: lancyPurple, size: 20),
-                  onPressed: () => _launchUrl(_uploadUrl(fn)),
+                  onPressed: () => _launchUrl(fileUrl),
                 ),
-                onTap: () => _launchUrl(_uploadUrl(fn)),
+                onTap: () => _launchUrl(fileUrl),
               );
             }),
           ],

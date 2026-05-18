@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pfe/config/api_config.dart';
+import 'package:pfe/screens/SuiviProjectScreen.dart';
 import 'package:pfe/service/project_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// Écran client : fichiers et liens du livrable une fois validé par l’admin
-/// (paiement libéré vers le freelancer, pièces jointes conservées sur la mission).
+/// Écran client : livrables en attente de validation + livrables déjà validés.
 class ClientConfirmedDeliveriesScreen extends StatefulWidget {
   const ClientConfirmedDeliveriesScreen({super.key});
 
@@ -23,7 +23,10 @@ class _ClientConfirmedDeliveriesScreenState
   static const Color _slate = Color(0xFF475569);
   static const Color _cardBorder = Color(0xFFE8ECF2);
 
+  // Confirmed (client_approved / approved)
   List<dynamic> _items = [];
+  // Pending client validation
+  List<dynamic> _pendingItems = [];
   bool _loading = true;
   String? _error;
 
@@ -39,10 +42,15 @@ class _ClientConfirmedDeliveriesScreenState
       _error = null;
     });
     try {
-      final list = await ProjectService.fetchClientConfirmedDeliveries();
+      // Fetch both in parallel
+      final results = await Future.wait([
+        ProjectService.fetchClientConfirmedDeliveries(),
+        ProjectService.fetchClientPendingDeliveries(),
+      ]);
       if (!mounted) return;
       setState(() {
-        _items = list;
+        _items = results[0];
+        _pendingItems = results[1];
         _loading = false;
       });
     } catch (e) {
@@ -54,6 +62,7 @@ class _ClientConfirmedDeliveriesScreenState
     }
   }
 
+  // kept for backward compat with _DeliveryCard signature
   static String _uploadUrl(String filename) {
     return '${ApiConfig.origin}/uploads/${Uri.encodeComponent(filename)}';
   }
@@ -120,6 +129,10 @@ class _ClientConfirmedDeliveriesScreenState
 
   @override
   Widget build(BuildContext context) {
+    final hasPending = _pendingItems.isNotEmpty;
+    final hasConfirmed = _items.isNotEmpty;
+    final isEmpty = !hasPending && !hasConfirmed;
+
     return Scaffold(
       backgroundColor: _pageBg,
       appBar: AppBar(
@@ -127,7 +140,7 @@ class _ClientConfirmedDeliveriesScreenState
         elevation: 0,
         backgroundColor: Colors.white,
         title: Text(
-          'Livrables validés',
+          'Livrables',
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.w700,
             color: _titleDark,
@@ -145,129 +158,148 @@ class _ClientConfirmedDeliveriesScreenState
           ),
         ],
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-            color: Colors.white,
-            child: Text(
-              'Missions où vous avez validé le livrable : fichiers et liens. Le paiement au freelancer est effectué par l’administration après validation.',
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                height: 1.35,
-                color: _slate,
-              ),
-            ),
-          ),
-          Expanded(
-            child: RefreshIndicator(
-              color: _brandPurple,
-              onRefresh: _load,
-              child: _loading
-                  ? ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: [
-                        SizedBox(
-                          height: MediaQuery.sizeOf(context).height * 0.45,
-                          child: Center(
-                            child: CircularProgressIndicator(
-                                color: _brandPurple),
-                          ),
-                        ),
-                      ],
-                    )
-                  : _error != null
-                      ? ListView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.all(24),
-                          children: [
-                            _ErrorPanel(
-                              message: _error!,
-                              onRetry: _load,
-                              brandPurple: _brandPurple,
+      body: RefreshIndicator(
+        color: _brandPurple,
+        onRefresh: _load,
+        child: _loading
+            ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  SizedBox(
+                    height: MediaQuery.sizeOf(context).height * 0.45,
+                    child: Center(
+                      child: CircularProgressIndicator(color: _brandPurple),
+                    ),
+                  ),
+                ],
+              )
+            : _error != null
+                ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(24),
+                    children: [
+                      _ErrorPanel(
+                        message: _error!,
+                        onRetry: _load,
+                        brandPurple: _brandPurple,
+                      ),
+                    ],
+                  )
+                : isEmpty
+                    ? ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: [_buildEmptyState(context)],
+                      )
+                    : ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                        children: [
+                          // ── À VALIDER ──────────────────────────────────
+                          if (hasPending) ...[
+                            _sectionHeader(
+                              icon: Icons.pending_actions_rounded,
+                              label: 'À valider',
+                              count: _pendingItems.length,
+                              color: Colors.orange.shade700,
+                              bg: Colors.orange.shade50,
                             ),
-                          ],
-                        )
-                      : _items.isEmpty
-                          ? ListView(
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              children: [_buildEmptyState(context)],
-                            )
-                          : ListView.builder(
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                              itemCount: _items.length + 1,
-                              itemBuilder: (context, index) {
-                                if (index == 0) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(
-                                        bottom: 12, top: 4),
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 5,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              colors: [
-                                                _brandPurple.withValues(alpha: 0.12),
-                                                _accentCyan.withValues(alpha: 0.12),
-                                              ],
-                                            ),
-                                            borderRadius:
-                                                BorderRadius.circular(999),
-                                            border: Border.all(
-                                              color: _cardBorder,
-                                            ),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.verified_rounded,
-                                                size: 16,
-                                                color: _brandPurple,
-                                              ),
-                                              const SizedBox(width: 6),
-                                              Text(
-                                                '${_items.length} livrable${_items.length > 1 ? 's' : ''}',
-                                                style: GoogleFonts.inter(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: _titleDark,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
+                            const SizedBox(height: 8),
+                            ..._pendingItems.map((raw) {
+                              if (raw is! Map) return const SizedBox.shrink();
+                              final p = Map<String, dynamic>.from(raw);
+                              return _PendingCard(
+                                project: p,
+                                brandPurple: _brandPurple,
+                                titleDark: _titleDark,
+                                slate: _slate,
+                                cardBorder: _cardBorder,
+                                onValidate: () async {
+                                  await Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          SuiviProjectScreen(project: p),
                                     ),
                                   );
-                                }
-                                final raw = _items[index - 1];
-                                if (raw is! Map) {
-                                  return const SizedBox.shrink();
-                                }
-                                final p = Map<String, dynamic>.from(raw);
-                                return _DeliveryCard(
-                                  project: p,
-                                  submission: _submission(p),
-                                  brandPurple: _brandPurple,
-                                  accentCyan: _accentCyan,
-                                  titleDark: _titleDark,
-                                  slate: _slate,
-                                  cardBorder: _cardBorder,
-                                  fileIcon: _fileIcon,
-                                  fileIconTint: _fileIconTint,
-                                  uploadUrl: _uploadUrl,
-                                  onLaunch: _launch,
-                                );
-                              },
+                                  // Refresh after returning from SuiviProjectScreen
+                                  _load();
+                                },
+                              );
+                            }),
+                            const SizedBox(height: 20),
+                          ],
+                          // ── VALIDÉS ────────────────────────────────────
+                          if (hasConfirmed) ...[
+                            _sectionHeader(
+                              icon: Icons.verified_rounded,
+                              label: 'Validés',
+                              count: _items.length,
+                              color: _brandPurple,
+                              bg: _brandPurple.withValues(alpha: 0.07),
                             ),
+                            const SizedBox(height: 8),
+                            ..._items.map((raw) {
+                              if (raw is! Map) return const SizedBox.shrink();
+                              final p = Map<String, dynamic>.from(raw);
+                              return _DeliveryCard(
+                                project: p,
+                                submission: _submission(p),
+                                brandPurple: _brandPurple,
+                                accentCyan: _accentCyan,
+                                titleDark: _titleDark,
+                                slate: _slate,
+                                cardBorder: _cardBorder,
+                                fileIcon: _fileIcon,
+                                fileIconTint: _fileIconTint,
+                                uploadUrl: _uploadUrl,
+                                onLaunch: _launch,
+                              );
+                            }),
+                          ],
+                        ],
+                      ),
+      ),
+    );
+  }
+
+  Widget _sectionHeader({
+    required IconData icon,
+    required String label,
+    required int count,
+    required Color color,
+    required Color bg,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+              color: color,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              '$count',
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
             ),
           ),
         ],
@@ -299,7 +331,7 @@ class _ClientConfirmedDeliveriesScreenState
               ),
               const SizedBox(height: 22),
               Text(
-                'Aucun livrable validé pour l’instant',
+                'Aucun livrable pour l’instant',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
                   fontSize: 18,
@@ -309,7 +341,7 @@ class _ClientConfirmedDeliveriesScreenState
               ),
               const SizedBox(height: 10),
               Text(
-                'Dès que vous aurez validé un livrable dans le suivi de mission, il apparaîtra ici. L’admin libère ensuite le paiement au freelancer.',
+                'Dès que le freelancer livrera son travail, vous verrez ici un bouton pour valider. Les livrables validés apparaissent aussi dans cette page.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   color: _slate,
@@ -319,6 +351,187 @@ class _ClientConfirmedDeliveriesScreenState
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+
+/// Card shown for a livrable that is pending client validation.
+class _PendingCard extends StatelessWidget {
+  final Map<String, dynamic> project;
+  final Color brandPurple;
+  final Color titleDark;
+  final Color slate;
+  final Color cardBorder;
+  final VoidCallback onValidate;
+
+  const _PendingCard({
+    required this.project,
+    required this.brandPurple,
+    required this.titleDark,
+    required this.slate,
+    required this.cardBorder,
+    required this.onValidate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final title = project['title']?.toString() ?? 'Mission';
+    final freelancer = project['acceptedFreelancer'];
+    var flName = 'Freelancer';
+    if (freelancer is Map && freelancer['name'] != null) {
+      flName = freelancer['name'].toString();
+    }
+    final sub = project['adminWorkSubmission'];
+    final msg = sub is Map ? (sub['message']?.toString().trim() ?? '') : '';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.orange.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.orange.shade200),
+                  ),
+                  child: Icon(Icons.pending_actions_rounded,
+                      color: Colors.orange.shade700, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          color: titleDark,
+                          height: 1.2,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(Icons.person_outline_rounded,
+                              size: 14, color: slate),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              flName,
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: slate,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (msg.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: cardBorder),
+                ),
+                child: Text(
+                  msg,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    height: 1.4,
+                    color: const Color(0xFF334155),
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline_rounded,
+                      size: 16, color: Colors.orange.shade700),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Le freelancer a livré son travail. Ouvrez le suivi pour valider ou demander des corrections.',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: Colors.orange.shade800,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: onValidate,
+                style: FilledButton.styleFrom(
+                  backgroundColor: brandPurple,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+                icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                label: Text(
+                  'Voir & valider le livrable',
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -673,12 +886,13 @@ class _DeliveryCard extends StatelessWidget {
                     const SizedBox(height: 10),
                     ...fileList.map((f) {
                       final fn = f['filename']?.toString() ?? '';
-                      final on =
-                          f['originalName']?.toString() ?? fn;
-                      if (fn.isEmpty) return const SizedBox.shrink();
-                      final url = uploadUrl(fn);
-                      final icon = fileIcon(on);
-                      final tint = fileIconTint(on);
+                      final on = f['originalName']?.toString() ?? fn;
+                      // Use Cloudinary URL if available, fall back to legacy local path
+                      final rawUrl = f['url']?.toString().trim() ?? '';
+                      final url = rawUrl.isNotEmpty ? rawUrl : uploadUrl(fn);
+                      if (fn.isEmpty && rawUrl.isEmpty) return const SizedBox.shrink();
+                      final icon = fileIcon(on.isNotEmpty ? on : fn);
+                      final tint = fileIconTint(on.isNotEmpty ? on : fn);
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 8),
                         child: Material(

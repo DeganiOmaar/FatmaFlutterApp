@@ -193,6 +193,31 @@ class ProjectService {
     return [];
   }
 
+  /// Client : missions avec livrable en attente de validation (pending_client).
+  static Future<List<dynamic>> fetchClientPendingDeliveries() async {
+    try {
+      final token = await AuthService.getToken();
+      final res = await http.get(
+        Uri.parse("${ApiConfig.baseURL}/projects/my"),
+        headers: {"Authorization": "Bearer $token"},
+      );
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data is List) {
+          return data.where((p) {
+            final sub = p is Map ? p['adminWorkSubmission'] : null;
+            final st = sub is Map ? sub['status']?.toString() : null;
+            return st == 'pending_client' || st == 'pending_review';
+          }).toList();
+        }
+      }
+    } catch (e) {
+      debugPrint('fetchClientPendingDeliveries: \$e');
+    }
+    return [];
+  }
+
+
   /// Freelancer : envoie fichiers / lien / message au **client** (puis validation admin pour l’escrow).
   static Future<String?> submitAdminDelivery(
     String projectId, {

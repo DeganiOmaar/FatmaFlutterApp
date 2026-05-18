@@ -57,7 +57,10 @@ class _SuiviProjectScreenState extends State<SuiviProjectScreen> {
 
   // ── Step index ────────────────────────────────────────
   int get _stepIndex {
-    switch (widget.project['status']?.toLowerCase()) {
+    final st = _liveMeta?['status']?.toString().isNotEmpty == true
+        ? _liveMeta!['status'].toString()
+        : widget.project['status']?.toString() ?? '';
+    switch (st.toLowerCase()) {
       case 'in_progress': return 1;
       case 'delivered':   return 2;
       case 'completed':
@@ -396,7 +399,11 @@ Future<void> _openDispute(String reason) async {
   // ══════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
-    final status = widget.project['status']?.toString() ?? '';
+    // Always prefer live metadata so the UI updates after the freelancer submits
+    // without requiring the client to navigate away and back.
+    final status = _liveMeta?['status']?.toString().isNotEmpty == true
+        ? _liveMeta!['status'].toString()
+        : widget.project['status']?.toString() ?? '';
 
     return SafeArea(
       child: Scaffold(
@@ -787,19 +794,22 @@ Future<void> _openDispute(String reason) async {
             const SizedBox(height: 6),
             ...fileList.map((f) {
               final fn = f['filename']?.toString() ?? '';
-              final on =
-                  f['originalName']?.toString() ?? fn;
-              if (fn.isEmpty) return const SizedBox.shrink();
-              final url = Uri.parse(
-                  '${ApiConfig.origin}/uploads/${Uri.encodeComponent(fn)}');
+              final on = f['originalName']?.toString() ?? fn;
+              // Use Cloudinary URL if available, fall back to legacy local path
+              final rawUrl = f['url']?.toString().trim() ?? '';
+              final fileUrl = rawUrl.isNotEmpty
+                  ? rawUrl
+                  : '${ApiConfig.origin}/uploads/${Uri.encodeComponent(fn)}';
+              if (fn.isEmpty && rawUrl.isEmpty) return const SizedBox.shrink();
+              final uri = Uri.parse(fileUrl);
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: _linkButton(
                   icon: Icons.insert_drive_file_rounded,
-                  label: on,
+                  label: on.isNotEmpty ? on : fn,
                   color: Colors.purple,
                   onTap: () async {
-                    if (await canLaunchUrl(url)) await launchUrl(url);
+                    if (await canLaunchUrl(uri)) await launchUrl(uri);
                   },
                 ),
               );
@@ -872,8 +882,13 @@ Future<void> _openDispute(String reason) async {
               label: "Télécharger le fichier",
               color: Colors.purple,
               onTap: () async {
+                // file is now a full Cloudinary URL; fall back to legacy path for old records
+                final raw = file.toString().trim();
                 final url = Uri.parse(
-                    "${ApiConfig.origin}/uploads/${file.toString()}");
+                  raw.startsWith('http')
+                      ? raw
+                      : '${ApiConfig.origin}/uploads/$raw',
+                );
                 if (await canLaunchUrl(url)) launchUrl(url);
               },
             ),
