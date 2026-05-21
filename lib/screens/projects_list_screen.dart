@@ -179,28 +179,39 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
                     ],
                   ),
 
-                  // ✅ Message refus si livraison refusée
-                  if (widget.role == 'freelancer' &&
-                      status == 'in_progress' &&
-                      project['delivery'] != null) ...[
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Icon(Icons.warning_amber_rounded,
-                            color: Colors.orange.shade600,
-                            size: 14),
-                        const SizedBox(width: 4),
-                        Text(
-                          "Livraison refusée — correction requise",
-                          style: GoogleFonts.inter(
-                            color: Colors.orange.shade700,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                  ...() {
+                    final hint = _freelancerDeliveryHint(project);
+                    if (hint == null) return <Widget>[];
+                    final refused = hint.$1 == 'refused';
+                    final color = refused
+                        ? Colors.orange.shade700
+                        : Colors.blue.shade700;
+                    return [
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(
+                            refused
+                                ? Icons.warning_amber_rounded
+                                : Icons.schedule_rounded,
+                            color: color,
+                            size: 14,
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              hint.$2,
+                              style: GoogleFonts.inter(
+                                color: color,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ];
+                  }(),
                 ],
               ),
             ),
@@ -240,6 +251,38 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
         ],
       ),
     );
+  }
+
+  /// `(kind, message)` — kind: `refused` | `waiting` | `delivered`
+  (String, String)? _freelancerDeliveryHint(dynamic project) {
+    if (widget.role != 'freelancer') return null;
+    final status = project['status']?.toString() ?? '';
+    if (status != 'in_progress') return null;
+
+    final delivery = project['delivery'];
+    if (delivery is! Map) return null;
+
+    final deliveryStatus =
+        delivery['status']?.toString().trim().toLowerCase() ?? 'pending';
+
+    switch (deliveryStatus) {
+      case 'refused':
+        return (
+          'refused',
+          'Livraison refusée — correction requise',
+        );
+      case 'delivered':
+        return (
+          'delivered',
+          'Livré — en attente de validation client',
+        );
+      case 'pending':
+      default:
+        return (
+          'waiting',
+          'En attente — livrez votre travail',
+        );
+    }
   }
 
   // ── Status meta ───────────────────────────────────────

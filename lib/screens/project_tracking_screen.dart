@@ -1,9 +1,5 @@
-import 'dart:io';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:pfe/service/project_service.dart';
 
 class ProjectTrackingScreen extends StatefulWidget {
   final Map<String, dynamic> project;
@@ -24,12 +20,6 @@ class _ProjectTrackingScreenState extends State<ProjectTrackingScreen> {
   final Color lancyPurple = const Color(0xFF8E2DE2);
   final Color lightBlue   = const Color(0xFF00D2FF);
 
-  final TextEditingController _linkCtrl    = TextEditingController();
-  final TextEditingController _messageCtrl = TextEditingController();
-
-  String? _fileName;
-  File?   _selectedFile;
-  bool    _isLoading = false;
 late Map<String, dynamic> projectData;
 
 @override
@@ -37,15 +27,6 @@ void initState() {
   super.initState();
   projectData = widget.project;
 }
-  final ProjectService _projectService = ProjectService();
-
-  @override
-  void dispose() {
-    _linkCtrl.dispose();
-    _messageCtrl.dispose();
-    super.dispose();
-  }
-
   // ✅ Calcul de l'index du Stepper selon le statut
   int get _stepIndex {
     switch (widget.project['status']?.toLowerCase()) {
@@ -54,81 +35,6 @@ void initState() {
       case 'completed':
       case 'paid':        return 3;
       default:            return 0;
-    }
-  }
-
-  Future<void> _pickFile() async {
-    try {
-      final result = await FilePicker.platform.pickFiles(type: FileType.any);
-      if (result != null && result.files.single.path != null) {
-        setState(() {
-          _selectedFile = File(result.files.single.path!);
-          _fileName     = result.files.first.name;
-        });
-      }
-    } catch (e) {
-      debugPrint("FilePicker error: $e");
-    }
-  }
-
-  Future<void> _handleDelivery() async {
-    if (_linkCtrl.text.trim().isEmpty && _selectedFile == null) {
-      Get.snackbar(
-        "Champ requis",
-        "Ajoute un lien ou un fichier avant de livrer",
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-        snackPosition: SnackPosition.TOP,
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      bool ok;
-      if (_selectedFile != null) {
-        ok = await _projectService.uploadDeliveryFile(
-          widget.project['_id'],
-          _selectedFile,
-          _linkCtrl.text.trim(),
-        );
-      } else {
-        ok = await _projectService.deliverProject(
-          widget.project['_id'],
-          _linkCtrl.text.trim(),
-          _messageCtrl.text.trim(),
-        );
-      }
-
-   if (ok) {
-  final updatedProject =
-      await _projectService.getProjectById(projectData['_id']);
-
-  setState(() {
-    projectData = updatedProject;
-  });
-
-  Get.snackbar(
-    "Livraison envoyée 📦",
-    "Le client va vérifier votre travail",
-    backgroundColor: Colors.green,
-    colorText: Colors.white,
-  );
-
-  if (mounted) Navigator.pop(context, true);
-} else {
-        Get.snackbar(
-          "Erreur",
-          "Impossible d'envoyer la livraison",
-          backgroundColor: Colors.red.shade100,
-          colorText: Colors.red.shade800,
-        );
-      }
-    } catch (e) {
-      Get.snackbar("Erreur", e.toString());
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -165,15 +71,14 @@ void initState() {
                     const SizedBox(height: 20),
 
                     // --- LOGIQUE FREELANCER ---
-                    if (widget.role == 'freelancer' && projectData['status'] == 'in_progress') ...[
-                      // ✅ Message si le client a refusé la livraison précédente
+                    if (widget.role == 'freelancer' &&
+                        projectData['status'] == 'in_progress') ...[
                       if (projectData['delivery'] != null &&
-    projectData['delivery']['status'] == 'refused')
-  _buildRejectionNotice(),
-                      
-                      _buildDeliveryForm(),
-                      const SizedBox(height: 20),
-                      _buildMainButton(),
+                          projectData['delivery']['status'] == 'refused')
+                        _buildRejectionNotice(),
+                      if (projectData['delivery'] == null ||
+                          projectData['delivery']['status'] == 'pending')
+                        _buildPendingDeliveryCard(),
                     ],
 
                     if (widget.role == 'freelancer' && projectData['status'] == 'delivered')
@@ -379,110 +284,48 @@ Widget _buildRejectionNotice() {
         ),
       );
 
-  Widget _buildDeliveryForm() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("Livrer votre travail",
-              style: GoogleFonts.inter(
-                  fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 20),
-          TextField(
-            controller: _linkCtrl,
-            decoration: InputDecoration(
-              hintText: "Lien GitHub, Drive, Figma...",
-              prefixIcon: Icon(Icons.link, color: lancyPurple, size: 20),
-              filled: true,
-              fillColor: const Color(0xFFF5F5F5),
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _messageCtrl,
-            maxLines: 3,
-            decoration: InputDecoration(
-              hintText: "Message au client (optionnel)...",
-              prefixIcon: Icon(Icons.chat_bubble_outline,
-                  color: lancyPurple, size: 20),
-              filled: true,
-              fillColor: const Color(0xFFF5F5F5),
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: _pickFile,
-              icon: Icon(Icons.attach_file, color: lancyPurple, size: 20),
-              label: Text(
-                _fileName ?? "Choisir un fichier",
-                style: TextStyle(color: lancyPurple),
-                overflow: TextOverflow.ellipsis,
-              ),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 15),
-                side: BorderSide(color: Colors.black.withValues(alpha: 0.1)),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+  Widget _buildPendingDeliveryCard() => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.blue.shade50,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.blue.shade200),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.schedule_rounded,
+                color: Colors.blue.shade600, size: 28),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "En attente de livraison",
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue.shade800,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    "Envoyez votre livrable depuis le chat mission "
+                    "(fichiers, lien et message).",
+                    style: GoogleFonts.inter(
+                      color: Colors.blue.shade700,
+                      fontSize: 13,
+                      height: 1.45,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMainButton() {
-    return Container(
-      width: double.infinity,
-      height: 55,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(15),
-        gradient: LinearGradient(colors: [lightBlue, lancyPurple]),
-        boxShadow: [
-          BoxShadow(
-              color: lancyPurple.withValues(alpha: 0.3),
-              blurRadius: 10,
-              offset: const Offset(0, 5)),
-        ],
-      ),
-      child: ElevatedButton.icon(
-        onPressed: _isLoading ? null : _handleDelivery,
-        icon: _isLoading
-            ? const SizedBox(
-                width: 20, height: 20,
-                child: CircularProgressIndicator(
-                    color: Colors.white, strokeWidth: 2))
-            : const Icon(Icons.file_upload_outlined, color: Colors.white),
-        label: Text(
-          _isLoading ? "Envoi en cours..." : "Marquer comme livré",
-          style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold),
+          ],
         ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          shadowColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15)),
-        ),
-      ),
-    );
-  }
+      );
 
   Widget _buildWaitingCard() => Container(
         width: double.infinity,

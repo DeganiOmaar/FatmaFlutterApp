@@ -77,6 +77,33 @@ class _ProposalsListScreenState extends State<ProposalsListScreen> {
     return 'Freelance';
   }
 
+  String? _freelancerAvatarUrl(Map<dynamic, dynamic> freelancer) {
+    final raw = freelancer['avatar'] ?? freelancer['profilePicture'];
+    if (raw == null) return null;
+    final t = raw.toString().trim();
+    if (t.isEmpty) return null;
+    if (t.startsWith('http://') || t.startsWith('https://')) return t;
+    return '${ApiConfig.origin}/$t';
+  }
+
+  Widget _freelancerAvatar(Map<dynamic, dynamic> freelancer, String initial) {
+    final url = _freelancerAvatarUrl(freelancer);
+    return CircleAvatar(
+      radius: 22,
+      backgroundColor: Colors.blue.shade100,
+      backgroundImage: url != null ? NetworkImage(url) : null,
+      child: url == null
+          ? Text(
+              initial,
+              style: const TextStyle(
+                color: Colors.blue,
+                fontWeight: FontWeight.bold,
+              ),
+            )
+          : null,
+    );
+  }
+
   Future<void> handleAction(String id, bool isAccept) async {
     if (id.isEmpty) return;
 
@@ -576,24 +603,7 @@ class _ProposalsListScreenState extends State<ProposalsListScreen> {
                       Get.to(() => ProfileScreen(email: email));
                     }
                   },
-                  child: CircleAvatar(
-                    radius: 22,
-                    backgroundColor: Colors.blue.shade100,
-                    backgroundImage: (freelancer['profilePicture'] != null &&
-                            freelancer['profilePicture'].toString().isNotEmpty)
-                        ? NetworkImage(freelancer['profilePicture'].toString())
-                        : null,
-                    child:
-                        (freelancer['profilePicture'] == null ||
-                                freelancer['profilePicture'].toString().isEmpty)
-                            ? Text(
-                                initialSafe,
-                                style: const TextStyle(
-                                    color: Colors.blue,
-                                    fontWeight: FontWeight.bold),
-                              )
-                            : null,
-                  ),
+                  child: _freelancerAvatar(freelancer, initialSafe),
                 ),
                 const SizedBox(width: 12),
                 Expanded(

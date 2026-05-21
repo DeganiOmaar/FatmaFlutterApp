@@ -78,6 +78,14 @@ class _WalletScreenState extends State<WalletScreen> {
           final balance   = snap.data?['balance'] ?? 0;
           final transactions =
               snap.data?['transactions'] as List? ?? [];
+          final projectCount = snap.data?['projectCount'] is int
+              ? snap.data!['projectCount'] as int
+              : int.tryParse('${snap.data?['projectCount']}') ??
+                  (widget.forClient ? 0 : transactions.length);
+          final totalTopUp = snap.data?['totalTopUp'] is num
+              ? (snap.data!['totalTopUp'] as num).toDouble()
+              : double.tryParse('${snap.data?['totalTopUp']}') ??
+                  _sumTopUps(transactions);
 
           return RefreshIndicator(
             color: skyBlue,
@@ -87,11 +95,20 @@ class _WalletScreenState extends State<WalletScreen> {
               slivers: [
                 // ── App Bar ──────────────────────────────
                 SliverAppBar(
-                  expandedHeight: 220,
+                  expandedHeight: 240,
                   pinned: true,
                   backgroundColor: skyBlue,
                   foregroundColor: Colors.white,
+                  title: Text(
+                    widget.forClient ? "Wallet client" : "Mon Wallet",
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 17,
+                      color: Colors.white,
+                    ),
+                  ),
                   flexibleSpace: FlexibleSpaceBar(
+                    collapseMode: CollapseMode.pin,
                     background: Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -101,55 +118,61 @@ class _WalletScreenState extends State<WalletScreen> {
                         ),
                       ),
                       child: SafeArea(
+                        bottom: false,
                         child: Padding(
-                          padding: const EdgeInsets.fromLTRB(
-                              20, 56, 20, 20),
+                          padding: const EdgeInsets.fromLTRB(20, 52, 20, 16),
                           child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
-                            mainAxisAlignment:
-                                MainAxisAlignment.end,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text("Solde disponible",
-                                  style: GoogleFonts.inter(
-                                      color: Colors.white
-                                          .withValues(alpha: 0.85),
-                                      fontSize: 14)),
+                              const Spacer(),
+                              Text(
+                                "Solde disponible",
+                                style: GoogleFonts.inter(
+                                  color:
+                                      Colors.white.withValues(alpha: 0.9),
+                                  fontSize: 14,
+                                ),
+                              ),
                               const SizedBox(height: 8),
                               isLoading
                                   ? const SizedBox(
                                       width: 24,
                                       height: 24,
-                                      child:
-                                          CircularProgressIndicator(
-                                              color: Colors.white,
-                                              strokeWidth: 2))
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
                                   : Text(
                                       "$balance €",
                                       style: GoogleFonts.poppins(
                                         color: Colors.white,
-                                        fontSize: 42,
+                                        fontSize: 40,
                                         fontWeight: FontWeight.w800,
                                         letterSpacing: -1.5,
+                                        height: 1.1,
                                       ),
                                     ),
-                              const SizedBox(height: 10),
+                              const SizedBox(height: 12),
                               Container(
-                                padding:
-                                    const EdgeInsets.symmetric(
-                                        horizontal: 14,
-                                        vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 6,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: Colors.white
-                                      .withValues(alpha: 0.2),
-                                  borderRadius:
-                                      BorderRadius.circular(99),
+                                  color:
+                                      Colors.white.withValues(alpha: 0.22),
+                                  borderRadius: BorderRadius.circular(99),
                                 ),
                                 child: Text(
-                                  "${transactions.length} mission${transactions.length != 1 ? 's' : ''} complétée${transactions.length != 1 ? 's' : ''}",
+                                  widget.forClient
+                                      ? "$projectCount projet${projectCount != 1 ? 's' : ''} publié${projectCount != 1 ? 's' : ''}"
+                                      : "$projectCount mission${projectCount != 1 ? 's' : ''} complétée${projectCount != 1 ? 's' : ''}",
                                   style: GoogleFonts.inter(
-                                      color: Colors.white,
-                                      fontSize: 12),
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
                             ],
@@ -157,14 +180,6 @@ class _WalletScreenState extends State<WalletScreen> {
                         ),
                       ),
                     ),
-                    title: Text(
-                        widget.forClient ? "Wallet client" : "Mon Wallet",
-                        style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 17,
-                            color: Colors.white)),
-                    titlePadding: const EdgeInsets.only(
-                        left: 56, bottom: 14),
                   ),
                 ),
 
@@ -177,9 +192,13 @@ class _WalletScreenState extends State<WalletScreen> {
                       children: [
                         Expanded(
                           child: _statCard(
-                            icon: Icons.check_circle_outline_rounded,
-                            label: "Missions",
-                            value: "${transactions.length}",
+                            icon: widget.forClient
+                                ? Icons.work_outline_rounded
+                                : Icons.check_circle_outline_rounded,
+                            label: widget.forClient
+                                ? "Projets publiés"
+                                : "Missions",
+                            value: "$projectCount",
                             color: skyBlue,
                           ),
                         ),
@@ -187,8 +206,12 @@ class _WalletScreenState extends State<WalletScreen> {
                         Expanded(
                           child: _statCard(
                             icon: Icons.payments_outlined,
-                            label: "Total gagné",
-                            value: "$balance €",
+                            label: widget.forClient
+                                ? "Total rechargé"
+                                : "Total gagné",
+                            value: widget.forClient
+                                ? "${totalTopUp.toStringAsFixed(totalTopUp.truncateToDouble() == totalTopUp ? 0 : 2)} €"
+                                : "$balance €",
                             color: mintCrystal,
                           ),
                         ),
@@ -267,8 +290,41 @@ class _WalletScreenState extends State<WalletScreen> {
     );
   }
 
+  double _sumTopUps(List transactions) {
+    var sum = 0.0;
+    for (final t in transactions) {
+      if (t is! Map) continue;
+      if (t['type']?.toString() == 'topup') {
+        sum += (t['amount'] is num)
+            ? (t['amount'] as num).toDouble()
+            : double.tryParse('${t['amount']}') ?? 0;
+      }
+    }
+    return sum;
+  }
+
   // ── Transaction card ──────────────────────────────────
   Widget _buildTxCard(dynamic t) {
+    final type = t['type']?.toString() ?? '';
+    final direction = t['direction']?.toString() ??
+        (type == 'project_funding' ? 'debit' : 'credit');
+    final isCredit = direction != 'debit';
+    final amount = (t['amount'] is num)
+        ? (t['amount'] as num).toDouble()
+        : double.tryParse('${t['amount'] ?? t['budget']}') ?? 0;
+    final color =
+        isCredit ? Colors.green.shade600 : Colors.orange.shade700;
+    final bgColor = isCredit
+        ? mintCrystal.withValues(alpha: 0.15)
+        : Colors.orange.shade50;
+    final icon = type == 'topup'
+        ? Icons.add_card_rounded
+        : type == 'refund'
+            ? Icons.replay_rounded
+            : type == 'project_funding'
+                ? Icons.rocket_launch_outlined
+                : Icons.check_circle_outline_rounded;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(16),
@@ -287,11 +343,10 @@ class _WalletScreenState extends State<WalletScreen> {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: mintCrystal.withValues(alpha: 0.15),
+              color: bgColor,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(Icons.check_circle_outline_rounded,
-                color: Colors.green.shade600, size: 22),
+            child: Icon(icon, color: color, size: 22),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -316,9 +371,9 @@ class _WalletScreenState extends State<WalletScreen> {
             ),
           ),
           Text(
-            "+${t['budget']} €",
+            "${isCredit ? '+' : '−'}${amount.toStringAsFixed(amount.truncateToDouble() == amount ? 0 : 2)} €",
             style: GoogleFonts.poppins(
-              color: Colors.green.shade600,
+              color: color,
               fontWeight: FontWeight.w800,
               fontSize: 16,
             ),
