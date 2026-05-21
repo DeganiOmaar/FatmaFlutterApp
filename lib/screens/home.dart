@@ -42,7 +42,9 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   // ✅ Ajoute cette variable
   int _notificationCount = 0;
+  String? _avatarUrl;
   final HomeService homeService = HomeService();
+  final UserService _userService = UserService();
   final Color skyBlue = const Color(0xFF74C0FC);
   final Color mintCrystal = const Color(0xFF81E38F);
   final Color lancyPurple = const Color(0xFF8E2DE2);
@@ -68,6 +70,7 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _attachProposalSocketBridge();
       _loadNotificationCount();
+      _loadUserAvatar();
       _loadClientWalletIfNeeded();
       _registerMainTabRefresh();
       _loadFreelancerSkillsForMatching();
@@ -142,11 +145,49 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _registerMainTabRefresh() {
-    if (widget.role.toLowerCase() != 'client') return;
     if (!Get.isRegistered<MainTabController>()) return;
-    Get.find<MainTabController>().refreshHomeProjects = () async {
-      if (mounted) await _reloadProjects();
+    final tabs = Get.find<MainTabController>();
+    if (widget.role.toLowerCase() == 'client') {
+      tabs.refreshHomeProjects = () async {
+        if (mounted) await _reloadProjects();
+      };
+    }
+    tabs.refreshHomeAvatar = () async {
+      if (mounted) await _loadUserAvatar();
     };
+  }
+
+  Future<void> _loadUserAvatar() async {
+    try {
+      final user = await _userService.fetchProfile(widget.email);
+      if (!mounted) return;
+      final raw = user.avatar?.trim();
+      setState(() {
+        _avatarUrl = (raw != null && raw.isNotEmpty) ? raw : null;
+      });
+    } catch (e) {
+      debugPrint('❌ Erreur chargement avatar: $e');
+    }
+  }
+
+  String? _resolvedAvatarUrl() {
+    final raw = _avatarUrl?.trim();
+    if (raw == null || raw.isEmpty) return null;
+    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+    return '${ApiConfig.origin}/$raw';
+  }
+
+  Widget _buildAppBarProfileAvatar() {
+    final url = _resolvedAvatarUrl();
+    return CircleAvatar(
+      radius: 18,
+      backgroundColor: skyBlue.withValues(alpha: 0.2),
+      backgroundImage: url != null ? NetworkImage(url) : null,
+      onBackgroundImageError: url != null ? (_, __) {} : null,
+      child: url == null
+          ? const Icon(Icons.person, color: Colors.blue, size: 22)
+          : null,
+    );
   }
 
   Future<void> _loadFreelancerSkillsForMatching() async {
@@ -307,7 +348,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     if (Get.isRegistered<MainTabController>()) {
-      Get.find<MainTabController>().refreshHomeProjects = null;
+      final tabs = Get.find<MainTabController>();
+      tabs.refreshHomeProjects = null;
+      tabs.refreshHomeAvatar = null;
     }
     _freelancerSearchCtrl.dispose();
     final c = AppSocketController.to;
@@ -567,11 +610,11 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           IconButton(
-            onPressed: () => Get.to(() => ProfileScreen(email: widget.email)),
-            icon: CircleAvatar(
-              backgroundColor: skyBlue.withValues(alpha: 0.2),
-              child: const Icon(Icons.person, color: Colors.blue),
-            ),
+            onPressed: () async {
+              await Get.to(() => ProfileScreen(email: widget.email));
+              if (mounted) await _loadUserAvatar();
+            },
+            icon: _buildAppBarProfileAvatar(),
           ),
         ],
       ),

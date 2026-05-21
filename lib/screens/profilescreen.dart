@@ -11,6 +11,7 @@ import 'package:pfe/screens/walletScreen.dart';
 import 'package:pfe/screens/create_mission_screen.dart';
 import 'package:pfe/service/auth_service.dart';
 import 'package:pfe/service/user_service.dart';
+import 'package:pfe/controllers/main_tab_controller.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String email;
@@ -276,6 +277,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (!mounted) return;
     if (url != null) {
       _reloadProfile();
+      if (Get.isRegistered<MainTabController>()) {
+        await Get.find<MainTabController>().refreshHomeAvatar?.call();
+      }
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text("Photo mise à jour ✅", style: GoogleFonts.inter()),
         backgroundColor: mintCrystal,

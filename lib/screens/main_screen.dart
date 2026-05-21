@@ -47,6 +47,7 @@ class _MainScreenState extends State<MainScreen> {
       final c = Get.find<MainTabController>();
       c.setTabIndex = null;
       c.refreshHomeProjects = null;
+      c.refreshHomeAvatar = null;
       Get.delete<MainTabController>(force: true);
     }
     super.dispose();
@@ -111,7 +112,12 @@ class _MainScreenState extends State<MainScreen> {
         currentIndex: _currentIndex,
         selectedItemColor: const Color(0xFF9249FD),
         unselectedItemColor: Colors.grey,
-        onTap: (index) => setState(() => _currentIndex = index),
+        onTap: (index) {
+          setState(() => _currentIndex = index);
+          if (index == 0 && Get.isRegistered<MainTabController>()) {
+            Get.find<MainTabController>().refreshHomeAvatar?.call();
+          }
+        },
         items: isClient
             ? const [
                 BottomNavigationBarItem(

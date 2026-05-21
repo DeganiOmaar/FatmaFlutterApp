@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 class MainTabController extends GetxController {
   void Function(int index)? setTabIndex;
   Future<void> Function()? refreshHomeProjects;
+  Future<void> Function()? refreshHomeAvatar;
 
   Future<void> afterMissionPublished() async {
     setTabIndex?.call(0);
