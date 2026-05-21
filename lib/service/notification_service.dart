@@ -42,8 +42,8 @@ class NotificationService {
             'message': e['message'] ?? '',
             'createdAt': e['createdAt'],
             'time': _formatTime(e['createdAt']),
-            'isRead': e['isRead'] ?? false,
-            'read': e['read'],
+            'isRead': e['isRead'] ?? e['read'] ?? false,
+            'read': e['read'] ?? e['isRead'] ?? false,
             'isToday': _isToday(e['createdAt']),
           });
         }

@@ -7,7 +7,11 @@ class UserModel {
   final List<String>? skills; // Liste des compétences techniques (ex: Java, Design, Marketing)
   final String? bio;        // Description personnelle
   final String? speciality;
-  final String? avatar; // Le titre professionnel (ex: "Développeur Mobile Fullstack")
+  final String? avatar;
+  final String? companyName;
+  final int? projectCount;
+  final int? proposalCount;
+  final int? wonCount;
 
   UserModel({
     required this.id,
@@ -18,6 +22,10 @@ class UserModel {
     this.bio,
     this.speciality,
     this.avatar,
+    this.companyName,
+    this.projectCount,
+    this.proposalCount,
+    this.wonCount,
   });
 
   // --- FACTORY : JSON -> OBJET DART ---
@@ -36,8 +44,18 @@ class UserModel {
       
       bio: json['bio'],
       speciality: json['speciality'],
-      avatar:json['avatar'],
+      avatar: json['avatar'],
+      companyName: json['companyName'],
+      projectCount: _parseInt(json['projectCount']),
+      proposalCount: _parseInt(json['proposalCount']),
+      wonCount: _parseInt(json['wonCount']),
     );
+  }
+
+  static int? _parseInt(dynamic v) {
+    if (v == null) return null;
+    if (v is int) return v;
+    return int.tryParse(v.toString());
   }
 
   // --- GETTERS (PROPRIÉTÉS CALCULÉES) ---
@@ -45,15 +63,7 @@ class UserModel {
   // Si le nom est vide, on affiche l'email par défaut pour éviter un trou dans l'interface
   String get displayName => (name != null && name!.isNotEmpty) ? name! : email;
 
-  // Placeholders (espaces réservés) pour de futures extensions
-  String? get companyName => null;
   List<dynamic>? get projects => null;
-
-  int? get proposalCount => null;
-
-  int? get projectCount => null;
-
-  int? get wonCount => null;
 
   // --- MÉTHODE : OBJET DART -> JSON ---
   // Utilisée par ton service pour mettre à jour le profil côté serveur Node.js

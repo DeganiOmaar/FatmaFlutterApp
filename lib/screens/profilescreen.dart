@@ -123,6 +123,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final nameCtrl = TextEditingController(text: user.name);
     final bioCtrl  = TextEditingController(text: user.bio ?? '');
 
+    var saving = false;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -166,36 +168,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _sheetInputDecoration("Bio", Icons.notes_rounded),
               ),
               const SizedBox(height: 20),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: skyBlue,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
-                ),
-                onPressed: () async {
-                  final ok = await userService.updateProfile(
-                    email: widget.email,
-                    name: nameCtrl.text,
-                    bio: bioCtrl.text,
+              StatefulBuilder(
+                builder: (sheetCtx, setSheetState) {
+                  return ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: skyBlue,
+                      disabledBackgroundColor: skyBlue.withValues(alpha: 0.5),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
+                    ),
+                    onPressed: saving
+                        ? null
+                        : () async {
+                            setSheetState(() => saving = true);
+                            final result = await userService.updateProfile(
+                              email: user.email,
+                              name: nameCtrl.text,
+                              bio: bioCtrl.text,
+                            );
+                            if (!sheetCtx.mounted) return;
+                            setSheetState(() => saving = false);
+                            if (!result.ok) {
+                              ScaffoldMessenger.of(sheetCtx).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    result.error ??
+                                        "Impossible d'enregistrer le profil",
+                                    style: GoogleFonts.inter(),
+                                  ),
+                                  backgroundColor: Colors.red.shade700,
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                              return;
+                            }
+                            Navigator.pop(sheetCtx);
+                            if (!mounted) return;
+                            _reloadProfile();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  "Profil mis à jour ✅",
+                                  style: GoogleFonts.inter(),
+                                ),
+                                backgroundColor: mintCrystal,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          },
+                    child: saving
+                        ? const SizedBox(
+                            height: 22,
+                            width: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Text(
+                            "Enregistrer",
+                            style: GoogleFonts.poppins(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                   );
-                  if (!ctx.mounted) return;
-                  Navigator.pop(ctx);
-                  if (!mounted) return;
-                  if (ok) {
-                    _reloadProfile();
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text("Profil mis à jour ✅",
-                          style: GoogleFonts.inter()),
-                      backgroundColor: mintCrystal,
-                      behavior: SnackBarBehavior.floating,
-                    ));
-                  }
                 },
-                child: Text("Enregistrer",
-                    style: GoogleFonts.poppins(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold)),
               ),
             ],
           ),

@@ -25,27 +25,62 @@ class UserService {
     }
   }
 
-  Future<bool> updateProfile({
+  Future<({bool ok, String? error})> updateProfile({
     required String email,
     required String name,
     required String bio,
   }) async {
     try {
-      final safe = Uri.encodeComponent(email.trim());
+      final trimmedName = name.trim();
+      if (trimmedName.isEmpty) {
+        return (ok: false, error: "Le nom ne peut pas être vide");
+      }
+
+      final safe = Uri.encodeComponent(email.trim().toLowerCase());
+      final token = await AuthService.getToken();
+      final headers = <String, String>{
+        "Content-Type": "application/json",
+      };
+      if (token != null && token.isNotEmpty) {
+        headers["Authorization"] = "Bearer $token";
+      }
+
       final response = await http.put(
-        // ✅ baseURL = http://IP:5001/api → donc /users/update/$safe
         Uri.parse("${ApiConfig.baseURL}/users/update/$safe"),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"name": name, "bio": bio}),
+        headers: headers,
+        body: jsonEncode({
+          "name": trimmedName,
+          "bio": bio.trim(),
+        }),
       );
 
       debugPrint("📡 updateProfile status: ${response.statusCode}");
       debugPrint("📡 updateProfile body: ${response.body}");
 
-      return response.statusCode == 200;
+      if (response.statusCode == 200) {
+        try {
+          final data = jsonDecode(response.body);
+          if (data is Map && data["user"] != null) {
+            return (ok: true, error: null);
+          }
+        } catch (_) {}
+        return (ok: false, error: "Réponse serveur invalide");
+      }
+
+      String? msg;
+      try {
+        final data = jsonDecode(response.body);
+        if (data is Map && data["message"] != null) {
+          msg = data["message"].toString();
+        }
+      } catch (_) {}
+      return (
+        ok: false,
+        error: msg ?? "Échec de la mise à jour (${response.statusCode})",
+      );
     } catch (e) {
       debugPrint("❌ Update error: $e");
-      return false;
+      return (ok: false, error: "Pas de connexion au serveur");
     }
   }
   

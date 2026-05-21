@@ -299,12 +299,16 @@ class _NotificationsScreenState extends State<NotificationsScreen>
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: IntrinsicHeight(
-          child: Row(
-            children: [
-              if (!isRead)
-                Container(
-                  width: 4,
+        child: Stack(
+          clipBehavior: Clip.hardEdge,
+          children: [
+            if (!isRead)
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: 4,
+                child: DecoratedBox(
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
                       colors: [_accentBlue, _purple],
@@ -313,62 +317,68 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                     ),
                   ),
                 ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildAvatar(type, notif),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
+              ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                isRead ? 14 : 18,
+                14,
+                14,
+                14,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildAvatar(type, notif),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    notif['title'] ?? '',
-                                    style: GoogleFonts.plusJakartaSans(
-                                      fontSize: 14,
-                                      fontWeight: isRead
-                                          ? FontWeight.w600
-                                          : FontWeight.w800,
-                                      color: _dark,
-                                    ),
-                                  ),
+                            Expanded(
+                              child: Text(
+                                notif['title'] ?? '',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 14,
+                                  fontWeight: isRead
+                                      ? FontWeight.w600
+                                      : FontWeight.w800,
+                                  color: _dark,
                                 ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  notif['time'] ??
-                                      _timeAgo(notif['createdAt']),
-                                  style: GoogleFonts.inter(
-                                    fontSize: 11,
-                                    color: Colors.grey.shade400,
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(width: 8),
                             Text(
-                              notif['message'] ?? '',
+                              notif['time'] ??
+                                  _timeAgo(notif['createdAt']),
                               style: GoogleFonts.inter(
-                                fontSize: 13,
-                                color: Colors.grey.shade600,
-                                height: 1.45,
+                                fontSize: 11,
+                                color: Colors.grey.shade400,
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 4),
+                        Text(
+                          notif['message'] ?? '',
+                          maxLines: 4,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: Colors.grey.shade600,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
