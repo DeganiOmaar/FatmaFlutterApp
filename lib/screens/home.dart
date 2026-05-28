@@ -532,6 +532,52 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildLancyAssistantFab({required String heroTag}) {
+    final isClient = widget.role.toLowerCase() == 'client';
+    return FloatingActionButton(
+      heroTag: heroTag,
+      tooltip: 'Lancy Assistant',
+      onPressed: () async {
+        final token = await AuthService.getToken();
+        if (!mounted || token == null || token.isEmpty) return;
+        Get.to(
+          () => LancyAssistantScreen(
+            token: token,
+            role: widget.role,
+            userName: widget.name,
+          ),
+        );
+      },
+      backgroundColor: Colors.transparent,
+      elevation: 4,
+      mini: isClient,
+      child: Container(
+        width: isClient ? 40 : 56,
+        height: isClient ? 40 : 56,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: LinearGradient(
+            colors: [skyBlue, mintCrystal],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: mintCrystal.withValues(alpha: 0.45),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Icon(
+          Icons.auto_awesome_rounded,
+          color: Colors.white,
+          size: isClient ? 22 : 26,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     _ensureProjectsFuture();
@@ -619,57 +665,27 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       floatingActionButton: isClient
-          ? FloatingActionButton.extended(
-              backgroundColor: lancyPurple,
-              onPressed: () => Get.to<bool>(
-                    () => CreateMissionScreen(clientEmail: _emailNorm),
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                _buildLancyAssistantFab(heroTag: 'lancy_assistant_fab_client'),
+                const SizedBox(height: 12),
+                FloatingActionButton.extended(
+                  heroTag: 'client_post_mission_fab',
+                  backgroundColor: lancyPurple,
+                  onPressed: () => Get.to<bool>(
+                        () => CreateMissionScreen(clientEmail: _emailNorm),
+                      ),
+                  icon: const Icon(Icons.add, color: Colors.white),
+                  label: const Text(
+                    "Poster",
+                    style: TextStyle(color: Colors.white),
                   ),
-              icon: const Icon(Icons.add, color: Colors.white),
-              label: const Text(
-                "Poster",
-                style: TextStyle(color: Colors.white),
-              ),
+                ),
+              ],
             )
-          : FloatingActionButton(
-              heroTag: 'lancy_assistant_fab',
-              tooltip: 'Lancy Assistant',
-              onPressed: () async {
-                final token = await AuthService.getToken();
-                if (!mounted || token == null || token.isEmpty) return;
-                Get.to(
-                  () => LancyAssistantScreen(
-                    token: token,
-                    freelancerName: widget.name,
-                  ),
-                );
-              },
-              backgroundColor: Colors.transparent,
-              elevation: 4,
-              child: Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [skyBlue, mintCrystal],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: mintCrystal.withValues(alpha: 0.45),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.auto_awesome_rounded,
-                  color: Colors.white,
-                  size: 26,
-                ),
-              ),
-            ),
+          : _buildLancyAssistantFab(heroTag: 'lancy_assistant_fab'),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -722,7 +738,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   onRefresh: _reloadProjects,
                   child: ListView.builder(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                    padding: EdgeInsets.fromLTRB(16, 4, 16, isClient ? 100 : 24),
                     itemCount: data.length,
                     itemBuilder: (context, index) =>
                         _projectCard(data[index], isClient),

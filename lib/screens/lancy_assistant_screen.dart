@@ -3,15 +3,18 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:pfe/service/assistant_service.dart';
 
-/// Lancy Assistant — Groq-powered freelancer coach (LANCY scope only).
+/// Lancy Assistant — Groq-powered coach (LANCY scope only).
 class LancyAssistantScreen extends StatefulWidget {
   final String token;
-  final String? freelancerName;
+  /// `client` or `freelancer` — adapts prompts and suggestions.
+  final String role;
+  final String? userName;
 
   const LancyAssistantScreen({
     super.key,
     required this.token,
-    this.freelancerName,
+    this.role = 'freelancer',
+    this.userName,
   });
 
   @override
@@ -39,12 +42,25 @@ class _LancyAssistantScreenState extends State<LancyAssistantScreen> {
   bool _sending = false;
   String? _error;
 
-  static const _suggestions = [
-    'Comment rédiger une proposition convaincante ?',
-    'Idées pour me démarquer sur une mission',
-    'Comment améliorer mon profil freelancer ?',
-    'Comment fonctionne le paiement escrow sur LANCY ?',
-  ];
+  bool get _isClient => widget.role.toLowerCase() == 'client';
+
+  List<String> get _suggestions => _isClient
+      ? const [
+          'Comment rédiger une bonne description de mission ?',
+          'Quel budget et délai prévoir pour mon projet ?',
+          'Comment choisir la meilleure proposition ?',
+          'Comment fonctionne le paiement escrow sur LANCY ?',
+        ]
+      : const [
+          'Comment rédiger une proposition convaincante ?',
+          'Idées pour me démarquer sur une mission',
+          'Comment améliorer mon profil freelancer ?',
+          'Comment fonctionne le paiement escrow sur LANCY ?',
+        ];
+
+  String get _emptyIntro => _isClient
+      ? 'Je suis Lancy Assistant. Je vous aide sur LANCY : publier des missions, recevoir des propositions, suivi des livrables et bonnes pratiques client.'
+      : 'Je suis Lancy Assistant. Je vous aide sur LANCY : propositions, missions, profil et bonnes pratiques freelancer.';
 
   @override
   void initState() {
@@ -208,9 +224,9 @@ class _LancyAssistantScreenState extends State<LancyAssistantScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final greeting = widget.freelancerName?.trim().isNotEmpty == true
-        ? widget.freelancerName!.trim().split(' ').first
-        : 'Freelancer';
+    final greeting = widget.userName?.trim().isNotEmpty == true
+        ? widget.userName!.trim().split(' ').first
+        : (_isClient ? 'Client' : 'Freelancer');
 
     return Scaffold(
       key: _scaffoldKey,
@@ -690,7 +706,7 @@ class _LancyAssistantScreenState extends State<LancyAssistantScreen> {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'Je suis Lancy Assistant. Je vous aide sur LANCY : propositions, missions, profil et bonnes pratiques freelancer.',
+                  _emptyIntro,
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(
                     fontSize: 14,
