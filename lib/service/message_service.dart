@@ -66,4 +66,71 @@ class MessageService {
             : null;
     throw Exception(errMsg ?? 'Erreur envoi message (${res.statusCode})');
   }
+
+  static Future<Map<String, dynamic>> _authJsonRequest(
+    String method,
+    Uri url, {
+    Map<String, dynamic>? body,
+  }) async {
+    final token = await AuthService.getToken();
+    final headers = <String, String>{
+      "Content-Type": "application/json",
+      if (token != null && token.isNotEmpty)
+        "Authorization": "Bearer $token",
+    };
+
+    final http.Response res;
+    switch (method) {
+      case "PATCH":
+        res = await http.patch(
+          url,
+          headers: headers,
+          body: body != null ? jsonEncode(body) : null,
+        );
+        break;
+      case "DELETE":
+        res = await http.delete(url, headers: headers);
+        break;
+      default:
+        throw Exception("Méthode HTTP non supportée");
+    }
+
+    dynamic decoded;
+    try {
+      decoded = res.body.isNotEmpty ? jsonDecode(res.body) : null;
+    } catch (_) {
+      decoded = null;
+    }
+
+    if (res.statusCode >= 200 && res.statusCode < 300 && decoded is Map) {
+      return Map<String, dynamic>.from(decoded);
+    }
+
+    final errMsg =
+        decoded is Map
+            ? (decoded['message'] ?? decoded['error'])?.toString()
+            : null;
+    throw Exception(errMsg ?? 'Erreur (${res.statusCode})');
+  }
+
+  /// PATCH — modifier un message (auteur uniquement, côté serveur).
+  static Future<Map<String, dynamic>> editMessage(
+    String messageId,
+    String text,
+  ) async {
+    final id = messageId.trim();
+    final url = Uri.parse("${ApiConfig.baseURL}/messages/$id");
+    return _authJsonRequest(
+      "PATCH",
+      url,
+      body: {"text": text.trim()},
+    );
+  }
+
+  /// DELETE — supprimer un message (soft delete, auteur uniquement).
+  static Future<Map<String, dynamic>> deleteMessage(String messageId) async {
+    final id = messageId.trim();
+    final url = Uri.parse("${ApiConfig.baseURL}/messages/$id");
+    return _authJsonRequest("DELETE", url);
+  }
 }

@@ -39,7 +39,10 @@ class _ChatScreenState extends State<ChatScreen> {
   Map<String, dynamic>? _participantMeta;
 
   late final void Function(Map<String, dynamic>) _incomingSub;
+  late final void Function(Map<String, dynamic>) _updatedSub;
+  late final void Function(Map<String, dynamic>) _deletedSub;
   late final void Function(dynamic) _msgErrSub;
+  bool _editDeleteBusy = false;
   static const Color _blue = Color(0xFF00AEEF);
   static const Color _purple = Color(0xFF8E2DE2);
   static const Color _bg = Color(0xFFEEF2F7);
@@ -50,9 +53,13 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _incomingSub = _handleGlobalIncomingMessage;
+    _updatedSub = _handleMessageUpdated;
+    _deletedSub = _handleMessageDeleted;
     _msgErrSub = _handleSocketMessageError;
     final sock = AppSocketController.to;
     sock.addMessageSubscriber(_incomingSub);
+    sock.addMessageUpdatedSubscriber(_updatedSub);
+    sock.addMessageDeletedSubscriber(_deletedSub);
     sock.addMessageErrorSubscriber(_msgErrSub);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -79,6 +86,133 @@ class _ChatScreenState extends State<ChatScreen> {
   void _handleGlobalIncomingMessage(Map<String, dynamic> normalized) {
     if (!mounted) return;
     _addIncomingSocketMessage(normalized);
+  }
+
+  void _handleMessageUpdated(Map<String, dynamic> normalized) {
+    if (!mounted) return;
+    if (!_sameProject(normalized['projectId'], widget.projectId)) return;
+    _upsertMessageFromSocket(normalized);
+  }
+
+  void _handleMessageDeleted(Map<String, dynamic> normalized) {
+    if (!mounted) return;
+    if (!_sameProject(normalized['projectId'], widget.projectId)) return;
+    _upsertMessageFromSocket(normalized);
+  }
+
+  void _upsertMessageFromSocket(Map<String, dynamic> map) {
+    final mid = _idString(map['_id']);
+    if (mid.isEmpty) return;
+
+    setState(() {
+      final idx = _messages.indexWhere(
+        (mm) => mm is Map && _idString(mm['_id']) == mid,
+      );
+      if (idx >= 0) {
+        _messages[idx] = Map<String, dynamic>.from(map);
+      } else {
+        _messages.add(Map<String, dynamic>.from(map));
+      }
+      _dedupeAndSortMessages();
+    });
+  }
+
+  bool _messageIsDeleted(Map msg) =>
+      msg['isDeleted'] == true || msg['isDeleted']?.toString() == 'true';
+
+  Future<void> _confirmDeleteMessage(Map<String, dynamic> msg) async {
+    final mid = _idString(msg['_id']);
+    if (mid.isEmpty || _editDeleteBusy) return;
+
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => _DeleteMessageSheet(
+        receiverName: widget.receiverName,
+        preview: msg['text']?.toString() ?? '',
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    _editDeleteBusy = true;
+    try {
+      await MessageService.deleteMessage(mid);
+      if (!mounted) return;
+      await _loadMessages();
+    } catch (e) {
+      if (!mounted) return;
+      final err =
+          e is Exception ? e.toString().replaceFirst('Exception: ', '') : '$e';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(err),
+          backgroundColor: Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      _editDeleteBusy = false;
+    }
+  }
+
+  Future<void> _showEditMessageDialog(Map<String, dynamic> msg) async {
+    final mid = _idString(msg['_id']);
+    if (mid.isEmpty || _editDeleteBusy) return;
+
+    final newText = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _EditMessageSheet(
+        initialText: msg['text']?.toString() ?? '',
+      ),
+    );
+
+    if (newText == null || newText.trim().isEmpty || !mounted) return;
+
+    _editDeleteBusy = true;
+    try {
+      await MessageService.editMessage(mid, newText.trim());
+      if (!mounted) return;
+      await _loadMessages();
+    } catch (e) {
+      if (!mounted) return;
+      final err =
+          e is Exception ? e.toString().replaceFirst('Exception: ', '') : '$e';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(err),
+          backgroundColor: Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      _editDeleteBusy = false;
+    }
+  }
+
+  void _showOwnMessageActions(Map<String, dynamic> msg) {
+    if (_messageIsDeleted(msg)) return;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => _MessageActionsSheet(
+        preview: msg['text']?.toString() ?? '',
+        onEdit: () {
+          Navigator.pop(sheetCtx);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _showEditMessageDialog(msg);
+          });
+        },
+        onDelete: () {
+          Navigator.pop(sheetCtx);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _confirmDeleteMessage(msg);
+          });
+        },
+      ),
+    );
   }
 
   void _handleSocketMessageError(dynamic data) {
@@ -518,6 +652,8 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     final sock = AppSocketController.to;
     sock.removeMessageSubscriber(_incomingSub);
+    sock.removeMessageUpdatedSubscriber(_updatedSub);
+    sock.removeMessageDeletedSubscriber(_deletedSub);
     sock.removeMessageErrorSubscriber(_msgErrSub);
     sock.setFocusedChatProject(null);
     sock.leaveProjectRooms(widget.projectId.trim());
@@ -655,13 +791,24 @@ class _ChatScreenState extends State<ChatScreen> {
                       final isMe =
                           _sameUser(msg['senderId'], widget.currentUserId);
                       final pending = msg['_pending'] == true;
-                      final body = msg['text']?.toString() ?? '';
-                      final time = pending
+                      final deleted = _messageIsDeleted(msg);
+                      final edited = msg['editedAt'] != null &&
+                          msg['editedAt'].toString().isNotEmpty;
+                      final body = deleted
+                          ? 'Message supprimé'
+                          : (msg['text']?.toString() ?? '');
+                      var time = pending
                           ? 'Envoi…'
                           : _bubbleTime(msg['createdAt']);
+                      if (!pending && edited && !deleted) {
+                        time = time.isEmpty ? 'modifié' : '$time · modifié';
+                      }
+
+                      final canManage =
+                          isMe && !pending && !deleted && _idString(msg['_id']).isNotEmpty;
 
                       return Opacity(
-                        opacity: pending && isMe ? 0.92 : 1,
+                        opacity: pending && isMe ? 0.92 : (deleted ? 0.75 : 1),
                         child: Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: Row(
@@ -684,7 +831,10 @@ class _ChatScreenState extends State<ChatScreen> {
                               const SizedBox(width: 8),
                             ],
                             Flexible(
-                              child: Container(
+                              child: GestureDetector(
+                                onLongPress:
+                                    canManage ? () => _showOwnMessageActions(Map<String, dynamic>.from(msg)) : null,
+                                child: Container(
                                 constraints: BoxConstraints(
                                   maxWidth:
                                       MediaQuery.sizeOf(context).width * 0.78,
@@ -700,14 +850,10 @@ class _ChatScreenState extends State<ChatScreen> {
                                   color:
                                       isMe ? null : _incomingFill,
                                   borderRadius: BorderRadius.only(
-                                    topLeft:
-                                        Radius.circular(isMe ? 18 : 6),
-                                    topRight:
-                                        Radius.circular(isMe ? 6 : 18),
-                                    bottomLeft:
-                                        const Radius.circular(18),
-                                    bottomRight:
-                                        const Radius.circular(18),
+                                    topLeft: const Radius.circular(18),
+                                    topRight: const Radius.circular(18),
+                                    bottomLeft: Radius.circular(isMe ? 18 : 4),
+                                    bottomRight: Radius.circular(isMe ? 4 : 18),
                                   ),
                                   border: isMe
                                       ? null
@@ -734,9 +880,15 @@ class _ChatScreenState extends State<ChatScreen> {
                                       style: GoogleFonts.inter(
                                         fontSize: 15,
                                         height: 1.42,
-                                        color: isMe
-                                            ? Colors.white
-                                            : const Color(0xFF1E293B),
+                                        fontStyle:
+                                            deleted ? FontStyle.italic : FontStyle.normal,
+                                        color: deleted
+                                            ? (isMe
+                                                ? Colors.white.withValues(alpha: 0.75)
+                                                : Colors.grey.shade600)
+                                            : (isMe
+                                                ? Colors.white
+                                                : const Color(0xFF1E293B)),
                                       ),
                                     ),
                                     const SizedBox(height: 6),
@@ -753,6 +905,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                   ],
                                 ),
                               ),
+                            ),
                             ),
                             if (isMe) ...[
                               const SizedBox(width: 8),
@@ -1012,6 +1165,443 @@ class _AdminDeliverySheetState extends State<_AdminDeliverySheet> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Poignée + fond blanc arrondi pour les bottom sheets du chat.
+class _ChatSheetShell extends StatelessWidget {
+  const _ChatSheetShell({required this.child});
+
+  final Widget child;
+
+  static const Color _blue = Color(0xFF00AEEF);
+  static const Color _purple = Color(0xFF8E2DE2);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 10),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE2E8F0),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              bottom: MediaQuery.paddingOf(context).bottom + 16,
+            ),
+            child: child,
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Widget gradientIcon(IconData icon, {Color? fg}) {
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [_blue.withValues(alpha: 0.15), _purple.withValues(alpha: 0.15)],
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Icon(icon, color: fg ?? _blue, size: 22),
+    );
+  }
+}
+
+class _MessageActionsSheet extends StatelessWidget {
+  const _MessageActionsSheet({
+    required this.preview,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final String preview;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final snippet = preview.trim();
+    final display =
+        snippet.isEmpty
+            ? 'Message'
+            : (snippet.length > 80 ? '${snippet.substring(0, 80)}…' : snippet);
+
+    return _ChatSheetShell(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Message',
+            style: GoogleFonts.poppins(
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF0F172A),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            display,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: Colors.grey.shade600,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Material(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(14),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: onEdit,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                child: Row(
+                  children: [
+                    _ChatSheetShell.gradientIcon(Icons.edit_rounded),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text(
+                        'Modifier',
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF0F172A),
+                        ),
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Material(
+            color: const Color(0xFFFEF2F2),
+            borderRadius: BorderRadius.circular(14),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: onDelete,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                child: Row(
+                  children: [
+                    _ChatSheetShell.gradientIcon(
+                      Icons.delete_outline_rounded,
+                      fg: Colors.red.shade700,
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text(
+                        'Supprimer',
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.red.shade700,
+                        ),
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded, color: Colors.red.shade300),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Annuler',
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EditMessageSheet extends StatefulWidget {
+  const _EditMessageSheet({required this.initialText});
+
+  final String initialText;
+
+  @override
+  State<_EditMessageSheet> createState() => _EditMessageSheetState();
+}
+
+class _EditMessageSheetState extends State<_EditMessageSheet> {
+  late final TextEditingController _controller;
+  static const Color _blue = Color(0xFF00AEEF);
+  static const Color _purple = Color(0xFF8E2DE2);
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialText);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final t = _controller.text.trim();
+    if (t.isEmpty) return;
+    Navigator.pop(context, t);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.viewInsetsOf(context).bottom;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottom),
+      child: _ChatSheetShell(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Modifier le message',
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF0F172A),
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              minLines: 2,
+              maxLines: 6,
+              textCapitalization: TextCapitalization.sentences,
+              style: GoogleFonts.inter(fontSize: 15),
+              decoration: InputDecoration(
+                hintText: 'Votre message…',
+                hintStyle: GoogleFonts.inter(color: Colors.grey.shade500),
+                filled: true,
+                fillColor: const Color(0xFFF1F5F9),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: _blue, width: 1.5),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+              ),
+              onSubmitted: (_) => _save(),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      side: const BorderSide(color: Color(0xFFE2E8F0)),
+                    ),
+                    child: Text(
+                      'Annuler',
+                      style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [_blue, _purple],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: _save,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          child: Center(
+                            child: Text(
+                              'Enregistrer',
+                              style: GoogleFonts.inter(
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DeleteMessageSheet extends StatelessWidget {
+  const _DeleteMessageSheet({
+    required this.receiverName,
+    required this.preview,
+  });
+
+  final String receiverName;
+  final String preview;
+
+  @override
+  Widget build(BuildContext context) {
+    final snippet = preview.trim();
+    final display =
+        snippet.isEmpty
+            ? '…'
+            : (snippet.length > 60 ? '${snippet.substring(0, 60)}…' : snippet);
+
+    return _ChatSheetShell(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Center(
+            child: Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.delete_outline_rounded,
+                color: Colors.red.shade700,
+                size: 28,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Supprimer ce message ?',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF0F172A),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Il sera retiré pour vous et $receiverName.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              height: 1.4,
+              color: Colors.grey.shade600,
+            ),
+          ),
+          if (snippet.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Text(
+                display,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontStyle: FontStyle.italic,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'Annuler',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.red.shade700,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'Supprimer',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

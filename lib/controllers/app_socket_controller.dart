@@ -26,6 +26,10 @@ class AppSocketController extends GetxController {
   void Function(Map<String, dynamic> payload)? onProposalPushHome;
 
   final List<void Function(Map<String, dynamic>)> _messageSubscribers = [];
+  final List<void Function(Map<String, dynamic>)> _messageUpdatedSubscribers =
+      [];
+  final List<void Function(Map<String, dynamic>)> _messageDeletedSubscribers =
+      [];
   final List<void Function(dynamic)> _messageErrorSubscribers = [];
 
   void addMessageSubscriber(void Function(Map<String, dynamic>) fn) {
@@ -36,6 +40,26 @@ class AppSocketController extends GetxController {
 
   void removeMessageSubscriber(void Function(Map<String, dynamic>) fn) {
     _messageSubscribers.remove(fn);
+  }
+
+  void addMessageUpdatedSubscriber(void Function(Map<String, dynamic>) fn) {
+    if (!_messageUpdatedSubscribers.contains(fn)) {
+      _messageUpdatedSubscribers.add(fn);
+    }
+  }
+
+  void removeMessageUpdatedSubscriber(void Function(Map<String, dynamic>) fn) {
+    _messageUpdatedSubscribers.remove(fn);
+  }
+
+  void addMessageDeletedSubscriber(void Function(Map<String, dynamic>) fn) {
+    if (!_messageDeletedSubscribers.contains(fn)) {
+      _messageDeletedSubscribers.add(fn);
+    }
+  }
+
+  void removeMessageDeletedSubscriber(void Function(Map<String, dynamic>) fn) {
+    _messageDeletedSubscribers.remove(fn);
   }
 
   void addMessageErrorSubscriber(void Function(dynamic data) fn) {
@@ -130,6 +154,8 @@ class AppSocketController extends GetxController {
 
     _socket!.on('notification', _onProposalNotificationRaw);
     _socket!.on('receive_message', _onReceiveMessageRaw);
+    _socket!.on('message_updated', _onMessageUpdatedRaw);
+    _socket!.on('message_deleted', _onMessageDeletedRaw);
     _socket!.on('message_error', _onMessageErrorRaw);
 
     if (!_socket!.connected) {
@@ -142,6 +168,8 @@ class AppSocketController extends GetxController {
     try {
       _socket?.off('notification');
       _socket?.off('receive_message');
+      _socket?.off('message_updated');
+      _socket?.off('message_deleted');
       _socket?.off('message_error');
       _socket?.dispose();
     } catch (_) {}
@@ -199,18 +227,30 @@ class AppSocketController extends GetxController {
     return s;
   }
 
+  void _dispatchToSubscribers(
+    List<void Function(Map<String, dynamic>)> list,
+    Map<String, dynamic> normalized,
+    String label,
+  ) {
+    for (final fn
+        in List<void Function(Map<String, dynamic>)>.from(list)) {
+      try {
+        fn(Map<String, dynamic>.from(normalized));
+      } catch (e, st) {
+        if (kDebugMode) debugPrint('$label subscriber error: $e\n$st');
+      }
+    }
+  }
+
   void _onReceiveMessageRaw(dynamic data) {
     final normalized = _coerceMessageMap(data);
     if (normalized == null) return;
 
-    for (final fn in List<
-        void Function(Map<String, dynamic>)>.from(_messageSubscribers)) {
-      try {
-        fn(Map<String, dynamic>.from(normalized));
-      } catch (e, st) {
-        if (kDebugMode) debugPrint('message subscriber error: $e\n$st');
-      }
-    }
+    _dispatchToSubscribers(
+      _messageSubscribers,
+      normalized,
+      'message',
+    );
 
     final myId = _userId ?? '';
     if (myId.isEmpty) return;
@@ -232,6 +272,26 @@ class AppSocketController extends GetxController {
       margin: const EdgeInsets.all(12),
       backgroundColor: Colors.white,
       colorText: const Color(0xFF0F172A),
+    );
+  }
+
+  void _onMessageUpdatedRaw(dynamic data) {
+    final normalized = _coerceMessageMap(data);
+    if (normalized == null) return;
+    _dispatchToSubscribers(
+      _messageUpdatedSubscribers,
+      normalized,
+      'message_updated',
+    );
+  }
+
+  void _onMessageDeletedRaw(dynamic data) {
+    final normalized = _coerceMessageMap(data);
+    if (normalized == null) return;
+    _dispatchToSubscribers(
+      _messageDeletedSubscribers,
+      normalized,
+      'message_deleted',
     );
   }
 
@@ -263,6 +323,8 @@ class AppSocketController extends GetxController {
     _focusedChatProjectId = null;
     onProposalPushHome = null;
     _messageSubscribers.clear();
+    _messageUpdatedSubscribers.clear();
+    _messageDeletedSubscribers.clear();
     _messageErrorSubscribers.clear();
   }
 
