@@ -130,7 +130,7 @@ class _SendProposalScreenState extends State<SendProposalScreen> {
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Proposition générée — relisez et adaptez avant envoi ✨'),
+          content: const Text('Demande générée — relisez et adaptez avant envoi '),
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 3),
         ),
@@ -178,7 +178,7 @@ class _SendProposalScreenState extends State<SendProposalScreen> {
     if (ok) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text("Proposition envoyée ✅"),
+          content: const Text("Demande envoyée ✅"),
           duration: const Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
         ),
@@ -203,7 +203,7 @@ class _SendProposalScreenState extends State<SendProposalScreen> {
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         title: Text(
-          "Nouvelle Proposition",
+          "Nouvelle Demande",
           style:
               GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18),
         ),
@@ -220,7 +220,7 @@ class _SendProposalScreenState extends State<SendProposalScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                "Détails de votre offre",
+                "Détails de votre demande",
                 style: GoogleFonts.poppins(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -396,7 +396,7 @@ class _SendProposalScreenState extends State<SendProposalScreen> {
                               ),
                             )
                           : Text(
-                              "Envoyer l'offre",
+                              "Envoyer la demande",
                               style: GoogleFonts.poppins(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,

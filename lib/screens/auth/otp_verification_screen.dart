@@ -81,7 +81,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
     final code = otpControllers.map((c) => c.text).join(); // Fusionne les 6 chiffres en un seul String
 
     if (code.length != 6) {
-      setState(() => msg = "Please enter the complete 6-digit code");
+      setState(() => msg = "s'il vous plait entrer le code complet de 6 chiffres");
       return;
     }
 
@@ -118,7 +118,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
   (route) => false,
 );
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Account verified! Welcome 🌸")),
+          const SnackBar(content: Text("compte créé avec succès!"), ),
         );
       } else {
         // Cas 2: Reset Password -> Go Reset Screen
@@ -166,7 +166,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                 ),
                 const SizedBox(height: 32),
                 Text(
-                  "Verification Code",
+                  "Vérification Code",
                   style: GoogleFonts.poppins(fontSize: 28, fontWeight: FontWeight.bold, color: darkText),
                 ),
                 const SizedBox(height: 12),
@@ -176,7 +176,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                   text: TextSpan(
                     style: GoogleFonts.inter(color: Colors.grey[600], fontSize: 15),
                     children: [
-                      const TextSpan(text: "We have sent the OTP code to \n"),
+                      const TextSpan(text: "Nous avons envoyé le code OTP à \n"),
                       TextSpan(
                         text: widget.email,
                         style: TextStyle(color: darkText, fontWeight: FontWeight.bold),
@@ -200,10 +200,10 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text("Didn't receive code? ", style: GoogleFonts.inter(color: Colors.grey[600])),
+                    Text("Vous n'avez pas reçu le code? ", style: GoogleFonts.inter(color: Colors.grey[600])),
                     TextButton(
                       onPressed: () {}, // À implémenter : AuthService.resendOTP
-                      child: Text("Resend", style: GoogleFonts.inter(color: skyBlue, fontWeight: FontWeight.bold)),
+                      child: Text("Renvoyer", style: GoogleFonts.inter(color: skyBlue, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -263,7 +263,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
         child: Center(
           child: loading
               ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : Text("VERIFY NOW", style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1.1)),
+              : Text("VÉRIFIER MAINTENANT", style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1.1)),
         ),
       ),
     );

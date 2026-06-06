@@ -28,7 +28,7 @@ class UserService {
   Future<({bool ok, String? error})> updateProfile({
     required String email,
     required String name,
-    required String bio,
+    required String bio, required String location, required String website, required String linkedin, required String github, double? hourlyRate,
   }) async {
     try {
       final trimmedName = name.trim();
@@ -125,4 +125,75 @@ Future<Map<String, dynamic>> getWallet() async {
   if (res.statusCode == 200) return jsonDecode(res.body);
   return {"balance": 0, "transactions": []};
 }
+
+}
+Future<({bool ok, String? error})> updateProfile({
+  required String email,
+  required String name,
+  required String bio,
+  String? location,
+  String? website,
+  String? linkedin,
+  String? github,
+  double? hourlyRate,
+}) async {
+  try {
+    final trimmedName = name.trim();
+    if (trimmedName.isEmpty) {
+      return (ok: false, error: "Le nom ne peut pas être vide");
+    }
+
+    final safe = Uri.encodeComponent(email.trim().toLowerCase());
+    final token = await AuthService.getToken();
+    final headers = <String, String>{
+      "Content-Type": "application/json",
+    };
+    if (token != null && token.isNotEmpty) {
+      headers["Authorization"] = "Bearer $token";
+    }
+
+    final body = <String, dynamic>{
+      "name": trimmedName,
+      "bio": bio.trim(),
+      if (location != null) "location": location.trim(),
+      if (website != null) "website": website.trim(),
+      if (linkedin != null) "linkedin": linkedin.trim(),
+      if (github != null) "github": github.trim(),
+      if (hourlyRate != null) "hourlyRate": hourlyRate,
+    };
+
+    final response = await http.put(
+      Uri.parse("${ApiConfig.baseURL}/users/update/$safe"),
+      headers: headers,
+      body: jsonEncode(body),
+    );
+
+    debugPrint("📡 updateProfile status: ${response.statusCode}");
+    debugPrint("📡 updateProfile body: ${response.body}");
+
+    if (response.statusCode == 200) {
+      try {
+        final data = jsonDecode(response.body);
+        if (data is Map && data["user"] != null) {
+          return (ok: true, error: null);
+        }
+      } catch (_) {}
+      return (ok: false, error: "Réponse serveur invalide");
+    }
+
+    String? msg;
+    try {
+      final data = jsonDecode(response.body);
+      if (data is Map && data["message"] != null) {
+        msg = data["message"].toString();
+      }
+    } catch (_) {}
+    return (
+      ok: false,
+      error: msg ?? "Échec de la mise à jour (${response.statusCode})",
+    );
+  } catch (e) {
+    debugPrint("❌ Update error: $e");
+    return (ok: false, error: "Pas de connexion au serveur");
+  }
 }

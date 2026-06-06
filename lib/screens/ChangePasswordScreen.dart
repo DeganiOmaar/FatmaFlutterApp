@@ -34,17 +34,17 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     if (oldPasswordC.text.isEmpty ||
         newPasswordC.text.isEmpty ||
         confirmPasswordC.text.isEmpty) {
-      setState(() => msg = "Remplis tous les champs ✍️");
+      setState(() => msg = "Remplis tous les champs ");
       return;
     }
 
     if (newPasswordC.text != confirmPasswordC.text) {
-      setState(() => msg = "Les mots de passe ne correspondent pas ❌");
+      setState(() => msg = "Les mots de passe ne correspondent pas ");
       return;
     }
 
     if (newPasswordC.text.length < 6) {
-      setState(() => msg = "Minimum 6 caractères 🛡️");
+      setState(() => msg = "Minimum 6 caractères ");
       return;
     }
 

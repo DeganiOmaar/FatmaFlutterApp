@@ -67,7 +67,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     if (passC.text != confirmPassC.text) {
-      Get.snackbar("Erreur 🌸", "Les mots de passe ne correspondent pas",
+      Get.snackbar("Erreur ", "Les mots de passe ne correspondent pas",
           backgroundColor: Colors.redAccent.withValues(alpha: 0.8),
           colorText: Colors.white);
       return;
@@ -104,7 +104,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (!mounted) return;
 
-      Get.snackbar("Presque fini ! ✨", "Un code de vérification a été envoyé.",
+      Get.snackbar("Presque fini ! ", "Un code de vérification a été envoyé.",
           backgroundColor: mintCrystal.withValues(alpha: 0.9),
           colorText: Colors.white);
 
@@ -115,8 +115,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ));
     } catch (e) {
       if (!mounted) return;
-      Get.snackbar("Erreur ❌", e.toString().replaceAll("Exception: ", ""),
-          backgroundColor: Colors.redAccent.withValues(alpha: 0.8),
+      Get.snackbar("Erreur ", e.toString().replaceAll("Exception: ", ""),
+          backgroundColor:Colors.redAccent.withValues(alpha: 0.8),
           colorText: Colors.white);
     } finally {
       if (mounted) setState(() => loading = false);
@@ -147,7 +147,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             children: [
               // Titre
               Text(
-                isFreelancer ? "Join as\nExpert 🌸" : "Start as\nClient ✨",
+                isFreelancer ? "Join as\nExpert " : "Start as\nClient ",
                 style: GoogleFonts.poppins(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,

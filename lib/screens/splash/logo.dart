@@ -47,7 +47,7 @@ class SplashPage extends StatelessWidget {
             ),
             
             Text(
-              "SkillBridge AI Platform",
+              "AI Platform",
               style: GoogleFonts.inter(
                 color: darkText.withValues(alpha: 0.4), 
                 fontSize: 14,
@@ -66,7 +66,7 @@ class SplashPage extends StatelessWidget {
                   // Action principale : S'inscrire
                   _buildPremiumButton(
                     context: context,
-                    text: "GET STARTED",
+                    text: "COMMENCER",
                     onPressed: () => Navigator.push(
                       context, 
                       MaterialPageRoute(builder: (_) => const ChooseRoleScreen())
@@ -77,7 +77,7 @@ class SplashPage extends StatelessWidget {
                   
                   // Action secondaire : Se connecter
                   _buildSecondaryButton(
-                    text: "I already have an account",
+                    text: "J'ai déjà un compte",
                     onPressed: () {
                        Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen()));
                     },

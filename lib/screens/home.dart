@@ -83,7 +83,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onProposalSocketFromServer(Map<String, dynamic> data) {
     if (!mounted) return;
-    if (kDebugMode) debugPrint('🔔 SIGNAL REÇU !');
+    if (kDebugMode) debugPrint(' SIGNAL REÇU !');
     setState(() {
       hasNotification = true;
       _notificationCount++;
@@ -116,7 +116,7 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
     } catch (e) {
-      debugPrint("❌ Erreur notif count: $e");
+      debugPrint("Erreur notif count: $e");
     }
   }
 

@@ -66,7 +66,6 @@ class ProposalService {
         }),
       );
 
-      // ✅ Debug مهم
       debugPrint("STATUS: ${response.statusCode}");
       debugPrint("BODY: ${response.body}");
 

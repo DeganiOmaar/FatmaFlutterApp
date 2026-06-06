@@ -74,7 +74,7 @@ class _ChooseRoleScreenState extends State<ChooseRoleScreen> with SingleTickerPr
                             borderRadius: BorderRadius.circular(30),
                           ),
                           child: Text(
-                            "STEP 1 OF 2",
+                            "ÉTAPE 1 SUR 2",
                             style: TextStyle(color: skyBlue, fontWeight: FontWeight.w800, fontSize: 12, letterSpacing: 1.2),
                           ),
                         ),
@@ -82,7 +82,7 @@ class _ChooseRoleScreenState extends State<ChooseRoleScreen> with SingleTickerPr
                         
                         // TITRE DE LA PAGE
                         Text(
-                          "How would you like to use the platform?",
+                          "Comment souhaitez-vous utiliser la plateforme?",
                           textAlign: TextAlign.center,
                           style: GoogleFonts.poppins(
                             fontSize: 28,
@@ -95,8 +95,8 @@ class _ChooseRoleScreenState extends State<ChooseRoleScreen> with SingleTickerPr
 
                         // CARTE POUR LE RÔLE CLIENT
                         _premiumRoleCard(
-                          title: "I'm a Client",
-                          subtitle: "I want to hire talent for my projects",
+                          title: "Je suis un Client",
+                          subtitle: "Je veux embaucher des talents pour mes projets",
                           role: "client",
                           mainColor: skyBlue,
                           icon: Icons.business_center_rounded,
@@ -106,8 +106,8 @@ class _ChooseRoleScreenState extends State<ChooseRoleScreen> with SingleTickerPr
 
                         // CARTE POUR LE RÔLE FREELANCER
                         _premiumRoleCard(
-                          title: "I'm a Freelancer",
-                          subtitle: "I'm looking for work and AI opportunities",
+                          title: "Je suis un Freelancer",
+                          subtitle: "Je cherche du travail et des opportunités avec l'IA",
                           role: "freelancer",
                           mainColor: mintCrystal,
                           icon: Icons.bolt_rounded,

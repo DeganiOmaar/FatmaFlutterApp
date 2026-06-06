@@ -31,7 +31,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     // Validation locale : vérifie si le champ est vide
     if (emailC.text.trim().isEmpty) {
-      setState(() => msg = "Please enter your email 📧");
+      setState(() => msg = "s'il vous plait entrer votre adresse email");
       return;
     }
 
@@ -109,7 +109,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
                 // Titre principal
                 Text(
-                  "Forgot Password?",
+                  "Mot de passe oublié?",
                   textAlign: TextAlign.center,
                   style: GoogleFonts.poppins(fontSize: 28, fontWeight: FontWeight.bold, color: darkText),
                 ),
@@ -117,7 +117,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 
                 // Texte explicatif pour l'utilisateur
                 Text(
-                  "Enter your email address and we will send you a code to reset your password.",
+                  "Entrez votre adresse email et nous vous enverrons un code pour réinitialiser votre mot de passe.",
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(color: Colors.grey[600], fontSize: 15, height: 1.5),
                 ),
@@ -171,7 +171,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         keyboardType: TextInputType.emailAddress,
         style: GoogleFonts.inter(fontWeight: FontWeight.w500, color: darkText),
         decoration: InputDecoration(
-          hintText: "Enter your email",
+          hintText: "Entrez votre email",
           hintStyle: GoogleFonts.inter(color: Colors.grey[400]),
           prefixIcon: Icon(Icons.email_outlined, color: skyBlue),
           border: OutlineInputBorder(
@@ -214,7 +214,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                 )
               : Text( // Sinon affiche le texte normal
-                  "SEND CODE",
+                  "ENVOYER LE CODE",
                   style: GoogleFonts.poppins(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,

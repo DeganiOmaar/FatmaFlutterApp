@@ -168,324 +168,7 @@ class _ProposalsListScreenState extends State<ProposalsListScreen> {
     return '${ApiConfig.origin}/uploads/${Uri.encodeComponent(filename)}';
   }
 
-  Future<void> _approveDeliverable() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text('Valider le livrable',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
-        content: Text(
-          'En validant, vous confirmez que le travail vous convient. '
-          'L’administration pourra alors libérer le paiement escrow vers le freelancer.',
-          style: GoogleFonts.inter(height: 1.4),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annuler'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Valider'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
-    setState(() => _deliverableBusy = true);
-    final err =
-        await ProjectService.approveClientSubmission(widget.projectId);
-    if (!mounted) return;
-    setState(() => _deliverableBusy = false);
-    if (err == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Merci. L’administration va libérer le paiement.',
-            style: GoogleFonts.inter(),
-          ),
-          backgroundColor: Colors.green.shade700,
-        ),
-      );
-      load();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(err),
-          backgroundColor: Colors.red.shade700,
-        ),
-      );
-    }
-  }
 
-  Future<void> _rejectDeliverable() async {
-    final ctrl = TextEditingController();
-    final send = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text('Demander une correction',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Expliquez ce qui doit être amélioré. Le freelancer sera notifié et pourra envoyer un nouveau livrable.',
-              style: GoogleFonts.inter(
-                  fontSize: 13, color: Colors.grey.shade700, height: 1.4),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: ctrl,
-              maxLines: 3,
-              decoration: InputDecoration(
-                hintText: 'Ex. : ajouter les maquettes manquantes…',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annuler'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.orange),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Envoyer le retour'),
-          ),
-        ],
-      ),
-    );
-    final note = ctrl.text.trim();
-    ctrl.dispose();
-    if (send != true || !mounted) return;
-    setState(() => _deliverableBusy = true);
-    final err = await ProjectService.rejectClientSubmission(
-      widget.projectId,
-      note: note,
-    );
-    if (!mounted) return;
-    setState(() => _deliverableBusy = false);
-    if (err == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Retour envoyé au freelancer.',
-            style: GoogleFonts.inter(),
-          ),
-        ),
-      );
-      load();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(err), backgroundColor: Colors.red.shade700),
-      );
-    }
-  }
-
-  /// Livrable : affiché sur la carte « Acceptée » (même flux que le suivi mission).
-  Widget _buildDeliverableBlock() {
-    if (!_escrowLocked) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.amber.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.amber.shade200),
-            ),
-            child: Text(
-              'Le paiement escrow sera actif une fois le budget de la mission confirmé. '
-              'Ensuite, le livrable du freelancer s’affichera ici pour validation.',
-              style: GoogleFonts.inter(
-                fontSize: 12.5,
-                height: 1.4,
-                color: Colors.amber.shade900,
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
-    final sub = _submissionMap();
-    final st = _submissionStatus();
-    final msg = sub?['message']?.toString().trim() ?? '';
-    final link = sub?['demoLink']?.toString().trim() ?? '';
-    final files = sub?['files'];
-    final fileList = <Map<String, dynamic>>[];
-    if (files is List) {
-      for (final f in files) {
-        if (f is Map) fileList.add(Map<String, dynamic>.from(f));
-      }
-    }
-
-    if (st == 'client_approved' || st == 'approved') {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 16),
-          _infoBanner(
-            color: Colors.teal.shade50,
-            border: Colors.teal.shade200,
-            textColor: Colors.teal.shade900,
-            icon: Icons.verified_outlined,
-            text:
-                'Vous avez validé ce livrable. L’administration libérera l’escrow vers le freelancer.',
-          ),
-        ],
-      );
-    }
-
-    if (st == 'client_rejected' || st == 'rejected') {
-      final note = sub?['reviewNote']?.toString().trim() ?? '';
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 16),
-          _infoBanner(
-            color: Colors.orange.shade50,
-            border: Colors.orange.shade200,
-            textColor: Colors.orange.shade900,
-            icon: Icons.edit_note_outlined,
-            text: note.isEmpty
-                ? 'Vous avez demandé des corrections. Le freelancer peut renvoyer un livrable.'
-                : 'Votre retour : $note',
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Dès réception d’un nouveau livrable, vous pourrez de nouveau valider ou refuser ici.',
-            style: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade700),
-          ),
-        ],
-      );
-    }
-
-    if (st == 'pending_client' || st == 'pending_review') {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 16),
-          Text(
-            'Livrable reçu',
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w700,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 8),
-          if (msg.isNotEmpty)
-            Text(msg, style: GoogleFonts.inter(height: 1.45, fontSize: 13)),
-          if (link.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            TextButton.icon(
-              onPressed: () => _launchUrl(link),
-              icon: const Icon(Icons.link_rounded),
-              label: const Text('Ouvrir le lien'),
-            ),
-          ],
-          if (fileList.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              'Fichiers',
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
-            ),
-            ...fileList.map((f) {
-              final fn = f['filename']?.toString() ?? '';
-              final on = f['originalName']?.toString() ?? fn;
-              // Use Cloudinary URL if available, fall back to legacy local path
-              final rawUrl = f['url']?.toString().trim() ?? '';
-              final fileUrl = rawUrl.isNotEmpty ? rawUrl : _uploadUrl(fn);
-              if (fn.isEmpty && rawUrl.isEmpty) return const SizedBox.shrink();
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-                leading: const Icon(Icons.attach_file_rounded, size: 20),
-                title: Text(
-                  on.isNotEmpty ? on : fn,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(fontSize: 13),
-                ),
-                trailing: IconButton(
-                  icon: Icon(Icons.open_in_new_rounded,
-                      color: lancyPurple, size: 20),
-                  onPressed: () => _launchUrl(fileUrl),
-                ),
-                onTap: () => _launchUrl(fileUrl),
-              );
-            }),
-          ],
-          const SizedBox(height: 16),
-          if (_deliverableBusy)
-            const Center(child: CircularProgressIndicator())
-          else
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.orange.shade800,
-                      side: BorderSide(color: Colors.orange.shade400),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    onPressed: _rejectDeliverable,
-                    child: Text(
-                      'Refuser / correction',
-                      style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: lancyPurple,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    onPressed: _approveDeliverable,
-                    child: Text(
-                      'Valider le livrable',
-                      style: GoogleFonts.poppins(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-        ],
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 16),
-        _infoBanner(
-          color: Colors.blue.shade50,
-          border: Colors.blue.shade100,
-          textColor: Colors.blue.shade900,
-          icon: Icons.hourglass_empty_rounded,
-          text:
-              'En attente du livrable du freelancer (fichiers / lien depuis le chat mission). '
-              'Vous pourrez valider ou demander une correction ici.',
-        ),
-      ],
-    );
-  }
 
   Widget _infoBanner({
     required Color color,
@@ -527,7 +210,7 @@ class _ProposalsListScreenState extends State<ProposalsListScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: Text("Propositions reçues",
+        title: Text("Demandes reçues",
             style: GoogleFonts.poppins(
                 fontWeight: FontWeight.w600, fontSize: 18)),
         centerTitle: true,
@@ -560,7 +243,7 @@ class _ProposalsListScreenState extends State<ProposalsListScreen> {
         children: [
           Icon(Icons.inbox_outlined, size: 80, color: Colors.grey[300]),
           const SizedBox(height: 16),
-          Text("Aucune proposition pour le moment",
+          Text("Aucune demande pour le moment",
               style: GoogleFonts.inter(color: Colors.grey)),
         ],
       ),
@@ -678,7 +361,16 @@ class _ProposalsListScreenState extends State<ProposalsListScreen> {
                 ],
               ),
             ] else if (status == "accepted") ...[
-              _buildDeliverableBlock(),
+              const SizedBox(height: 20),
+              _infoBanner(
+                color: const Color(0xFFE6F4EA),
+                border: const Color(0xFF81E38F),
+                textColor: const Color(0xFF2E7D32),
+                icon: Icons.check_circle_outline,
+                text: _escrowLocked
+                    ? "Le paiement est sécurisé en escrow."
+                    : "En attente de sécurisation du paiement.",
+              ),
             ],
           ],
         ),

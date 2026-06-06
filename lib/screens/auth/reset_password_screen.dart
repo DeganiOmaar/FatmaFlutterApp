@@ -35,19 +35,19 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
     // 1. Validation : Champs vides
     if (newPasswordC.text.isEmpty || confirmPasswordC.text.isEmpty) {
-      setState(() => msg = "Please fill all fields ✍️");
+      setState(() => msg = "s'il vous plait remplir tous les champs");
       return;
     }
 
     // 2. Validation : Correspondance
     if (newPasswordC.text != confirmPasswordC.text) {
-      setState(() => msg = "Passwords do not match ❌");
+      setState(() => msg = "les mots de passe ne correspondent pas");
       return;
     }
 
     // 3. Validation : Longueur minimale
     if (newPasswordC.text.length < 6) {
-      setState(() => msg = "Use at least 6 characters 🛡️");
+      setState(() => msg = "Utilisez au moins 6 caractères ");
       return;
     }
 
@@ -70,7 +70,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       // 5. Notification de succès stylisée
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("Success! Your password is now updated.", 
+          content: Text("Succès! Votre mot de passe est maintenant mis à jour.", 
             style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
           backgroundColor: mintCrystal,
           behavior: SnackBarBehavior.floating,
@@ -131,13 +131,13 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 const SizedBox(height: 32),
 
                 Text(
-                  "New Password",
+                  "Nouveau Mot de Passe",
                   textAlign: TextAlign.center,
                   style: GoogleFonts.poppins(fontSize: 28, fontWeight: FontWeight.bold, color: darkText),
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  "Create a strong password to keep your account secure.",
+                  "Créez un nouveau mot de passe sécurisé.",
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(color: Colors.grey[600], fontSize: 15),
                 ),
@@ -147,7 +147,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 // Champ : Nouveau mot de passe
                 _buildPasswordField(
                   controller: newPasswordC,
-                  hint: "New Password",
+                  hint: "Nouveau Mot de Passe",
                   isObscure: hideNewPassword,
                   toggle: () => setState(() => hideNewPassword = !hideNewPassword),
                 ),
@@ -156,7 +156,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 // Champ : Confirmation
                 _buildPasswordField(
                   controller: confirmPasswordC,
-                  hint: "Confirm Password",
+                  hint: "Confirmer le Mot de Passe",
                   isObscure: hideConfirmPassword,
                   toggle: () => setState(() => hideConfirmPassword = !hideConfirmPassword),
                 ),
@@ -237,7 +237,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
           child: loading
               ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
               : Text(
-                  "UPDATE PASSWORD",
+                  "Mettre à jour le mot de passe",
                   style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1.1),
                 ),
         ),

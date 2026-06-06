@@ -305,7 +305,7 @@ Future<void> _openDispute(String reason) async {
     );
   }
 
-  void _showDisputeDialog() {
+  /*void _showDisputeDialog() {
     final ctrl = TextEditingController();
     showDialog(
       context: context,
@@ -376,7 +376,7 @@ Future<void> _openDispute(String reason) async {
       ),
     );
   }
-
+*/
   void _showSuccess(String title, String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text("$title — $msg",
@@ -699,7 +699,7 @@ Future<void> _openDispute(String reason) async {
           onTap: _isLoading ? null : _showRejectDialog,
         ),
         const SizedBox(height: 10),
-        SizedBox(
+       /* SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
@@ -710,14 +710,14 @@ Future<void> _openDispute(String reason) async {
                 borderRadius: BorderRadius.circular(14),
               ),
             ),
-            onPressed: _isLoading ? null : _showDisputeDialog,
-            icon: const Icon(Icons.gavel_rounded, size: 18),
-            label: Text(
-              'Ouvrir un litige',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-            ),
+           // onPressed: _isLoading ? null : _showDisputeDialog,
+            //icon: const Icon(Icons.gavel_rounded, size: 18),
+            //label: Text(
+              // 'Ouvrir un litige',
+              //style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+           // ),
           ),
-        ),
+        ),*/
       ],
     );
   }
@@ -956,7 +956,7 @@ Future<void> _openDispute(String reason) async {
         const SizedBox(height: 10),
 
         // ✅ Litige
- SizedBox(
+ /*SizedBox(
 
   width: double.infinity,
 
@@ -997,7 +997,7 @@ Future<void> _openDispute(String reason) async {
       ),
     ),
   ),
-)
+)*/
       ],
     );
   }
